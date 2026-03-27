@@ -11,4 +11,4 @@ Edit the file to use your preferred port if you don't want to use 3000
 # What it does
 - Lists all md files in the path you provide.
 - Auto reloads when the file changed.
-- Renders mermaid diagrams in the markdown file to diagrams. Click the diagram to view it in fullscreen, and zoom/pan.
+- Renders mermaid in the markdown file to diagrams. Click the diagram to view it in fullscreen, and zoom/pan.
