@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = process.env.PORT || 3081;
+const PORT = process.env.PORT || 3080;
 const WATCH_DIR = process.argv[2] || '.';
 
 const html = (body, title) => `<!DOCTYPE html>
