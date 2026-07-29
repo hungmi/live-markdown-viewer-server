@@ -15,3 +15,5 @@ Set the `PORT` env var to use a different port: `PORT=3000 node live-markdown-vi
 - Syntax highlighting for fenced code blocks (highlight.js).
 - Table of contents sidebar (on wide screens) with active-section highlighting, plus `#` anchor links on headings.
 - Renders mermaid in the markdown file to diagrams. Click the diagram to view it in fullscreen, and zoom/pan.
+- Quick file switcher dropdown on every file page — jump between files of the same project without going back to the list.
+- Split view (`⧉ Split` link, or `/__split?left=a.md&right=b.md`): two files side by side in one tab, each pane with its own hot reload; drag the divider to resize, `⇄` to swap panes. The URL updates as you pick files, so a split layout is bookmarkable.

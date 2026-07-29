@@ -25,6 +25,13 @@ const html = (body, title) => `<!DOCTYPE html>
   .markdown-body table { display: table; width: 100%; }
   .back-link { display: inline-block; margin-bottom: 16px; color: var(--link); text-decoration: none; font-size: 14px; }
   .back-link:hover { text-decoration: underline; }
+  .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; font-size: 14px;
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  .topbar .back-link { margin-bottom: 0; }
+  select { max-width: 320px; padding: 4px 8px; font-size: 13px; color: inherit;
+           background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+  .split-link { color: var(--muted); text-decoration: none; font-size: 13px; }
+  .split-link:hover { color: var(--link); }
   .hanchor { margin-left: 8px; color: var(--muted); text-decoration: none; opacity: 0; font-weight: normal; }
   h1:hover .hanchor, h2:hover .hanchor, h3:hover .hanchor { opacity: 1; }
   #toc { position: fixed; top: 0; left: 0; width: 230px; height: 100vh; overflow-y: auto;
@@ -75,6 +82,17 @@ function findMdFiles(dir) {
   return results;
 }
 
+function fileSelect(id, selected) {
+  const files = findMdFiles(WATCH_DIR).map(f => path.relative(WATCH_DIR, f)).sort();
+  const groups = {};
+  for (const f of files) (groups[path.dirname(f)] ||= []).push(f);
+  const opts = Object.keys(groups).sort().map(dir =>
+    `<optgroup label="${esc(dir === '.' ? '/' : dir + '/')}">` +
+    groups[dir].map(f => `<option value="${esc(f)}"${f === selected ? ' selected' : ''}>${esc(path.basename(f))}</option>`).join('') +
+    `</optgroup>`).join('');
+  return `<select id="${id}"><option value=""${selected ? '' : ' selected'}>&mdash; file &mdash;</option>${opts}</select>`;
+}
+
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url);
 
@@ -91,14 +109,74 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Split view: two files side by side in one tab
+  if (url.startsWith('/__split')) {
+    const q = new URL(req.url, 'http://localhost').searchParams;
+    const left = q.get('left') || '';
+    const right = q.get('right') || '';
+    const body = `<style>
+  html, body { height: 100%; }
+  #split-bar { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border);
+               font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:13px; color:var(--muted); }
+  #split-bar a, #split-bar button { color:var(--muted); text-decoration:none; background:var(--bg);
+    border:1px solid var(--border); border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px; }
+  #split-bar a:hover, #split-bar button:hover { color:var(--link); }
+  #panes { display:flex; height:calc(100% - 47px); }
+  #panes iframe { border:0; height:100%; background:var(--bg); }
+  #fr-left { width:50%; flex:none; }
+  #fr-right { flex:1; min-width:0; }
+  #divider { width:5px; flex:none; cursor:col-resize; background:var(--border); }
+  body.resizing iframe { pointer-events:none; }
+  body.resizing { cursor:col-resize; user-select:none; }
+</style>
+<div id="split-bar">
+  <a href="/" title="Back to file list">&larr;</a>
+  ${fileSelect('sel-left', left)}
+  <button id="swap" title="Swap panes">&#8644;</button>
+  ${fileSelect('sel-right', right)}
+</div>
+<div id="panes"><iframe id="fr-left"></iframe><div id="divider"></div><iframe id="fr-right"></iframe></div>
+<script>
+const selL = document.getElementById('sel-left'), selR = document.getElementById('sel-right');
+const frL = document.getElementById('fr-left'), frR = document.getElementById('fr-right');
+const src = v => v ? '/' + v.split('/').map(encodeURIComponent).join('/') : '/';
+function upd() {
+  if (frL.getAttribute('src') !== src(selL.value)) frL.src = src(selL.value);
+  if (frR.getAttribute('src') !== src(selR.value)) frR.src = src(selR.value);
+  history.replaceState(null, '', '/__split?left=' + encodeURIComponent(selL.value) + '&right=' + encodeURIComponent(selR.value));
+  document.title = (selL.value.split('/').pop() || '?') + ' | ' + (selR.value.split('/').pop() || '?');
+}
+selL.addEventListener('change', upd);
+selR.addEventListener('change', upd);
+document.getElementById('swap').addEventListener('click', () => {
+  const t = selL.value; selL.value = selR.value; selR.value = t; upd();
+});
+upd();
+let dragging = false;
+document.getElementById('divider').addEventListener('mousedown', () => { dragging = true; document.body.classList.add('resizing'); });
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  frL.style.width = Math.min(85, Math.max(15, e.clientX / innerWidth * 100)) + '%';
+});
+window.addEventListener('mouseup', () => { dragging = false; document.body.classList.remove('resizing'); });
+</script>`;
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(html(body, 'Split view'));
+    return;
+  }
+
   // Serve a specific markdown file
   if (url !== '/' && url !== '/favicon.ico') {
-    const filePath = path.join(WATCH_DIR, url.slice(1));
+    const filePath = path.join(WATCH_DIR, url.split('?')[0].slice(1));
     if (fs.existsSync(filePath) && filePath.endsWith('.md')) {
       const content = fs.readFileSync(filePath, 'utf-8');
-      const page = `<nav id="toc"></nav><main><a class="back-link" href="/">&larr; All files</a><article id="content" class="markdown-body"></article></main>
+      const rel = path.relative(WATCH_DIR, filePath);
+      const page = `<nav id="toc"></nav><main><div class="topbar"><a class="back-link" href="/">&larr; All files</a>${fileSelect('switcher', rel)}<a class="split-link" href="/__split?left=${encodeURIComponent(rel)}" title="View two files side by side">&#10697; Split</a></div><article id="content" class="markdown-body"></article></main>
 <script>
 const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+document.getElementById('switcher').addEventListener('change', e => {
+  if (e.target.value) location.href = '/' + e.target.value.split('/').map(encodeURIComponent).join('/');
+});
 document.getElementById('content').innerHTML = marked.parse(${JSON.stringify(content)});
 mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', maxTextSize: 100000, flowchart: { useMaxWidth: false }, sequence: { useMaxWidth: false } });
 document.querySelectorAll('pre code.language-mermaid').forEach(el => {
@@ -237,7 +315,7 @@ es.onmessage = e => {
     groups[dir].map(f => `<a href="/${esc(f.rel)}"><span>${esc(path.basename(f.rel))}</span><time>${f.mtime}</time></a>`).join('') +
     `</div>`).join('');
   res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(html(`<main class="markdown-body"><h2>Markdown Files</h2>
+  res.end(html(`<main class="markdown-body"><div class="topbar" style="justify-content:space-between"><h2 style="margin:0;border:0;padding:0">Markdown Files</h2><a class="split-link" href="/__split" title="View two files side by side">&#10697; Split view</a></div>
 <input id="q" type="search" placeholder="Filter files&hellip;" autofocus>
 <div class="file-list">${sections || '<p>No .md files found</p>'}</div></main>
 <script>
