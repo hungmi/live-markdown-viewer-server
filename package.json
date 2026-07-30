@@ -1,0 +1,11 @@
+{
+  "name": "live-markdown-viewer-server",
+  "version": "1.0.0",
+  "description": "Live markdown viewer server with dark mode, TOC, syntax highlighting, and smart reload",
+  "bin": {
+    "mdview": "./live-markdown-viewer-server-3080.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

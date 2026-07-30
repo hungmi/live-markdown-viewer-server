@@ -2,6 +2,21 @@
 a node server js that renders markdown previews in your browser.
 
 # How to use it?
+
+## Install as a global command (recommended)
+Run once, inside this repo:
+```bash
+npm link
+```
+This creates an `mdview` command on your PATH (a symlink into this repo — editing the script here takes effect immediately, no reinstall needed). Then, from anywhere:
+```bash
+mdview the/folder/contains/md/files   # serves on http://localhost:3080
+mdview                                # defaults to the current directory
+PORT=3000 mdview docs                 # use a different port
+```
+Note: the symlink lives under your active Node version's bin directory — re-run `npm link` if you move this repo or switch Node versions.
+
+## Or run directly with node
 `node live-markdown-viewer-server.js the/folder/contains/md/files`
 
 And visit http://localhost:3081 (or use `live-markdown-viewer-server-3080.js` for port 3080).
